@@ -1,0 +1,15 @@
+- name: Run webapp as backends
+  hosts: vmex
+  become: yes
+  vars_files:
+    - vars.yml
+  roles:
+    - { role: webapp, backend_port: 5001 }
+    - { role: webapp, backend_port: 5002 }
+    - { role: webapp, backend_port: 5003 }
+
+- name: Run balancer
+  hosts: vmex
+  become: yes
+  roles:
+    - { role: balancer }

@@ -1,0 +1,59 @@
+- name: Install yum-utils
+  yum:
+    name: yum-utils
+    state: present
+- name: Add docker repo
+  command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+- name: Install docker
+  yum:
+    name: ['docker-ce', 'docker-ce-cli', 'containerd.io', 'python-docker-py']
+    state: present
+
+- name: Add ansible_ssh_user to docker group
+  user:
+    name: "{{ ansible_ssh_user }}"
+    group: docker
+    append: yes
+
+- name: Start docker
+  service:
+    name: docker
+    state: started
+
+- name: Create a network
+  docker_network:
+    name: network_one
+    ipam_config:
+      - subnet: 172.3.27.0/24
+        gateway: 172.3.27.20
+        iprange: 172.3.27.0/26
+    appends: yes
+
+- name: Log into DockerHub
+  docker_login:
+    username: "{{ dockerhub_login }}"
+    password: "{{ dockerhub_password }}"
+
+- name: Pull webapp image
+  docker_image:
+    name: dmurzin/exam2
+    tag: application
+
+- name: Log out of DockerHub
+  docker_login:
+    state: absent
+
+- name: Run webapp container on <backend_port>
+  docker_container:
+    name: webapp{{ backend_port }}
+    image: dmurzin/exam2:application
+    state: started
+    networks:
+      - name: network_one
+        ipv4_address: "172.3.27.1{{ backend_port -5000 |int }}"
+    command: --port="{{ backend_port }}"
+    exposed_ports:
+      - "{{ backend_port }}"
+    ports:
+      - "{{ backend_port }}:{{ backend_port }}"

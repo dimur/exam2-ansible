@@ -1,0 +1,64 @@
+- name: Install yum-utils
+  yum:
+    name: yum-utils
+    state: present
+- name: Add docker repo
+  command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+- name: Install docker
+  yum:
+    name: ['docker-ce', 'docker-ce-cli', 'containerd.io', 'python-docker-py']
+    state: present
+
+- name: Add ansible_ssh_user to docker group
+  user:
+    name: "{{ ansible_ssh_user }}"
+    group: docker
+    append: yes
+
+- name: Start docker
+  service:
+    name: docker
+    state: started
+
+- name: Create a network
+  docker_network:
+    name: network_one
+    ipam_config:
+      - subnet: 172.3.27.0/24
+        gateway: 172.3.27.20
+        iprange: 172.3.27.0/26
+    appends: yes
+
+- name: Pull nginx image
+  docker_image:
+    name: nginx
+
+- name: Generate nginx.conf
+  template:
+    src: nginx.conf
+    dest: nginx.conf
+
+- name: copy Dockerfile
+  copy:
+    src: Dockerfile
+    dest: Dockerfile
+
+- name: Build an image
+  docker_image:
+    build:
+      path: .
+      pull: yes
+    name: nginx_balancer
+    source: build
+
+- name: Run balancer nginx container
+  docker_container:
+    name: balancer
+    image: nginx_balancer
+    state: started
+    networks:
+      - name: network_one
+        ipv4_address: 172.3.27.14
+    exposed_ports: "80"
+    ports: "80:80"
